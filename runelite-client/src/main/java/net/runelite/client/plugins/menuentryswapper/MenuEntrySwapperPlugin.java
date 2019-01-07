@@ -354,6 +354,17 @@ public class MenuEntrySwapperPlugin extends Plugin
 				swap("pickpocket", option, target, true);
 			}
 
+			if (config.swapPickpocket() && target.contains("menaphite thug"))
+			{
+				if (shiftModifier)
+				{
+					swap("knock-out", option, target, true);
+				}
+				else {
+					swap("pickpocket", option, target, true);
+				}
+			}
+
 			if (config.swapAbyssTeleport() && target.contains("mage of zamorak"))
 			{
 				swap("teleport", option, target, true);
@@ -531,6 +542,10 @@ public class MenuEntrySwapperPlugin extends Plugin
 		else if (config.swapBones() && option.equals("bury"))
 		{
 			swap("use", option, target, true);
+		}
+		else if (target.contains("leaping"))
+		{
+			swap("drop", option, target, true);
 		}
 	}
 
