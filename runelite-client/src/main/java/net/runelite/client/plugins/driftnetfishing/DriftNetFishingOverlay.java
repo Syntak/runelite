@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 2018, Syntak <syntaktv@gmail.com>
+ * Copyright (c) 2019, Syntak <syntaktv@gmail.com>
+ * Copyright (c) 2018, James Swindle <wilingua@gmail.com>
+ * Copyright (c) 2018, Adam <Adam@sigterm.info>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,13 +40,11 @@ import java.util.Set;
 public class DriftNetFishingOverlay extends Overlay {
 
     private final Client client;
-    private final DriftNetFishingConfig config;
     private final DriftNetFishingPlugin plugin;
 
     @Inject
-    DriftNetFishingOverlay(Client client, DriftNetFishingConfig config, DriftNetFishingPlugin plugin) {
+    DriftNetFishingOverlay(Client client, DriftNetFishingPlugin plugin) {
         this.client = client;
-        this.config = config;
         this.plugin = plugin;
         setPosition(OverlayPosition.DYNAMIC);
         setLayer(OverlayLayer.ABOVE_SCENE);
@@ -57,14 +57,14 @@ public class DriftNetFishingOverlay extends Overlay {
             renderNetOverlay(graphics, obj);
         }
 
-        Set<Actor> interactedNPCs = plugin.getActiveFishies();
+        Set<Actor> activeFishies = plugin.getActiveFishies();
 
-        for (NPC npc : plugin.getFishies()) {
+        for (NPC fishy : plugin.getFishies()) {
             Color hCol = Color.RED;
-            if (interactedNPCs.contains(npc)) {
+            if (activeFishies.contains(fishy)) {
                 hCol = Color.GREEN;
             }
-            renderNpcOverlay(graphics, npc, hCol);
+            renderNpcOverlay(graphics, fishy, hCol);
         }
 
         return null;

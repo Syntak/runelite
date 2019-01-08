@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 2018, Syntak <syntaktv@gmail.com>
+ * Copyright (c) 2019, Syntak <dontspam@hotmail.com.au>
+ * Copyright (c) 2018, James Swindle <wilingua@gmail.com>
+ * Copyright (c) 2018, Adam <Adam@sigterm.info>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,14 +27,12 @@
 package net.runelite.client.plugins.driftnetfishing;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.inject.Provides;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import net.runelite.api.events.*;
 import net.runelite.client.callback.ClientThread;
-import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -55,11 +55,12 @@ public class DriftNetFishingPlugin extends Plugin {
     // Drift net fishing regions
     private static final Set<Integer> DRIFT_FISHING_REGIONS = ImmutableSet.of(15008, 15009);
 
-    @Inject
-    private Client client;
+    // Drift net anchor ids
+    private static final Set<Integer> DRIFT_FISHING_ANCHOR_IDS = ImmutableSet.of(ObjectID.DRIFT_NET_ANCHORS,
+            ObjectID.DRIFT_NET_ANCHORS_30953, ObjectID.DRIFT_NET_ANCHORS_30954, ObjectID.DRIFT_NET_FULL);
 
     @Inject
-    private DriftNetFishingConfig config;
+    private Client client;
 
     @Inject
     private OverlayManager overlayManager;
@@ -86,11 +87,8 @@ public class DriftNetFishingPlugin extends Plugin {
     @Getter(AccessLevel.PACKAGE)
     private final Map<GameObject, Integer> netFishCount = new HashMap<>();
 
+    private Actor lastInteractedFishy;
 
-    @Provides
-    DriftNetFishingConfig provideConfig(ConfigManager configManager) {
-        return configManager.getConfig(DriftNetFishingConfig.class);
-    }
 
     @Override
     protected void startUp() throws Exception {
@@ -120,47 +118,35 @@ public class DriftNetFishingPlugin extends Plugin {
         }
     }
 
-    @Subscribe
-    public void onConfigChanged(ConfigChanged configChanged) {
-        if (!configChanged.getGroup().equals("driftnetfishing")) {
-            return;
-        }
-
-        rebuildAllNpcs();
-    }
-
 
     @Subscribe
     public void onNpcSpawned(NpcSpawned npcSpawned) {
-        if (!inRegion()) return;
+        if (incorrectArea()) return;
         final NPC npc = npcSpawned.getNpc();
         final String npcName = npc.getName();
 
-        if (npcName != null && npcName.equals(FISH_NAME)) {
+        if (npcName != null && npcName.equals(FISH_NAME))
             fishies.add(npc);
-        }
     }
 
     @Subscribe
     public void onNpcDespawned(NpcDespawned npcDespawned) {
-        if (!inRegion()) return;
+        if (incorrectArea()) return;
         final NPC npc = npcDespawned.getNpc();
 
         for (GameObject net : driftAnchors) {
+            if (net.getWorldLocation().distanceTo(npc.getWorldLocation()) > 3) continue;
+            log.info("netted a fish, net counter: " + netFishCount.get(net));
+
             ObjectComposition impostor = client.getObjectDefinition(net.getId()).getImpostor();
+
             switch (impostor.getId()) {
-                case ObjectID.DRIFT_NET_ANCHORS: // Not set
-                case ObjectID.DRIFT_NET_ANCHORS_30953: // Set but no fish yet
-                    netFishCount.put(net, 0);
+                case ObjectID.DRIFT_NET_FULL:
+                    netFishCount.put(net, 10); // Set fish to 10 (full)
                     break;
-                case ObjectID.DRIFT_NET_FULL: // Set with 10 fish (full)
-                    netFishCount.put(net, 10);
-                    break;
-                case ObjectID.DRIFT_NET_ANCHORS_30954: // Set with unknown amount of fish
-                    if (netFishCount.get(net) > -1 && net.getWorldLocation().distanceTo(npc.getWorldLocation()) < 3) {
-                        log.info(net.getWorldLocation().distanceTo(npc.getWorldLocation()) + " distance");
-                        netFishCount.put(net, netFishCount.get(net) + 1);
-                    }
+                case ObjectID.DRIFT_NET_ANCHORS_30954:
+                    if (netFishCount.get(net) > -1) // If fish counter is known
+                        netFishCount.put(net, netFishCount.get(net) + 1); // Increment fish +1
                     break;
             }
         }
@@ -170,24 +156,28 @@ public class DriftNetFishingPlugin extends Plugin {
         activeTimers.remove(npc);
     }
 
+
     @Subscribe
     public void onGameObjectSpawned(GameObjectSpawned event) {
-        if (!inRegion()) return;
+        if (incorrectArea()) return;
+
         GameObject gameObject = event.getGameObject();
         ObjectComposition comp = client.getObjectDefinition(gameObject.getId());
+
         if (comp.getImpostorIds() != null && comp.getImpostor() != null) {
+
+            if (DRIFT_FISHING_ANCHOR_IDS.contains(comp.getImpostor().getId()))
+                driftAnchors.add(gameObject);
+
             switch (comp.getImpostor().getId()) {
-                case ObjectID.DRIFT_NET_ANCHORS: // Not set
-                case ObjectID.DRIFT_NET_ANCHORS_30953: // Set but no fish yet
-                    driftAnchors.add(gameObject);
+                case ObjectID.DRIFT_NET_ANCHORS: // No net yet
+                case ObjectID.DRIFT_NET_ANCHORS_30953: // Net but no fish yet
                     netFishCount.put(gameObject, 0);
                     break;
-                case ObjectID.DRIFT_NET_FULL: // Set with 10 fish (full)
-                    driftAnchors.add(gameObject);
+                case ObjectID.DRIFT_NET_FULL: // Net with 10 fish (full)
                     netFishCount.put(gameObject, 10);
                     break;
-                case ObjectID.DRIFT_NET_ANCHORS_30954: // Set with unknown amount of fish
-                    driftAnchors.add(gameObject);
+                case ObjectID.DRIFT_NET_ANCHORS_30954: // Net with 1-9 fish (not sure how to determine amount)
                     netFishCount.put(gameObject, -1);
                     break;
             }
@@ -196,7 +186,7 @@ public class DriftNetFishingPlugin extends Plugin {
 
     @Subscribe
     public void onGameObjectDespawned(GameObjectDespawned event) {
-        if (!inRegion()) return;
+        if (incorrectArea()) return;
 
         GameObject gameObject = event.getGameObject();
         driftAnchors.remove(gameObject);
@@ -206,8 +196,10 @@ public class DriftNetFishingPlugin extends Plugin {
 
     @Subscribe
     public void onGameTick(GameTick event) {
-        if (!inRegion()) return;
+        if (incorrectArea()) return;
 
+        // Remove "activated" fish after 60 seconds (arbitrary)
+        // todo: determine how long a fish is actually activated for
         List<Actor> toRemove = new ArrayList<>();
         activeTimers.forEach((k, v) -> {
             if (Instant.now().getEpochSecond() - v.getEpochSecond() >= 60) {
@@ -218,39 +210,36 @@ public class DriftNetFishingPlugin extends Plugin {
         for (Actor item : toRemove) {
             activeTimers.remove(item);
             activeFishies.remove(item);
+            log.info("fish deactivated by timeout (total: " + activeFishies.size() + ")");
         }
 
 
-        Player me = client.getLocalPlayer();
-        if (me.getInteracting() != null) {
-            if (me.getInteracting().getWorldLocation().distanceTo(me.getWorldLocation()) <= 1) {
-                activeFishies.add(me.getInteracting());
-                activeTimers.put(me.getInteracting(), Instant.now());
-            }
+    }
+
+    @Subscribe
+    private void onWidgetLoaded(WidgetLoaded event) {
+        if (incorrectArea() || event.getGroupId() != 607) return; // 607 is the fish bank interface
+
+        for (GameObject net : driftAnchors) {
+            if (net.getWorldLocation().distanceTo(client.getLocalPlayer().getWorldLocation()) > 3) continue;
+
+            log.info("emptied net");
+            netFishCount.put(net, 0);
         }
+    }
 
-       /* Tile tile = client.getSelectedSceneTile();
-        if (tile != null) {
-            GameObject[] go = tile.getGameObjects();
-
-            for (GameObject i : go) {
-
-
-                if (i != null) {
-                    ObjectComposition ob = client.getObjectDefinition(i.getId());
-                    log.info(ob.getName() + " " + ob.getId());
-                    if (ob.getName() != null && ob.getName().equals("null")) {
-                        ob = ob.getImpostor();
-                        log.info(ob.getName() + " " + ob.getId() + " fixed");
-                    }
-
-                }
-
-
-            }
-
-        }*/
-
+    @Subscribe
+    private void onInteractingChanged(InteractingChanged event) {
+        if (incorrectArea() || event.getSource() != client.getLocalPlayer()) return;
+        if (event.getTarget() != null && event.getTarget().getName().equals(FISH_NAME)) {
+            lastInteractedFishy = event.getTarget();
+        } else if (event.getTarget() == null && lastInteractedFishy != null
+                && client.getLocalPlayer().getWorldLocation().distanceTo(lastInteractedFishy.getWorldLocation()) == 1) {
+            activeFishies.add(lastInteractedFishy);
+            activeTimers.put(lastInteractedFishy, Instant.now());
+            log.info("activated fish (total: " + activeFishies.size() + ")");
+            lastInteractedFishy = null;
+        }
     }
 
     private void rebuildAllNpcs() {
@@ -273,7 +262,9 @@ public class DriftNetFishingPlugin extends Plugin {
         }
     }
 
-    private boolean inRegion() {
+    private boolean incorrectArea() {
+        if (client.getMapRegions() == null) return true;
+
         for (int region : client.getMapRegions()) {
             if (!DRIFT_FISHING_REGIONS.contains(region)) {
                 fishies.clear();
@@ -281,9 +272,9 @@ public class DriftNetFishingPlugin extends Plugin {
                 netFishCount.clear();
                 activeFishies.clear();
                 activeTimers.clear();
-                return false;
+                return true;
             }
         }
-        return true;
+        return false;
     }
 }
