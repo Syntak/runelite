@@ -31,6 +31,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
+import net.runelite.api.coords.WorldArea;
 import net.runelite.api.events.*;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.eventbus.Subscribe;
@@ -45,12 +46,15 @@ import java.util.*;
 @PluginDescriptor(
         name = "Drift Net Fishing",
         description = "Show helpful information while drift net fishing",
-        tags = {"overlay", "anchors", "underwater", "skilling", "timers"}
+        tags = {"overlay", "anchors", "underwater", "skilling", "hunter"}
 )
 @Slf4j
 public class DriftNetFishingPlugin extends Plugin {
     // Name of fish for overlay
     private static final String FISH_NAME = "Fish shoal";
+
+    // Distance to a net when it is interacted with by a fish or the player
+    private static final int SUCC_DISTANCE = 2;
 
     // Drift net fishing regions
     private static final Set<Integer> DRIFT_FISHING_REGIONS = ImmutableSet.of(15008, 15009);
@@ -58,6 +62,7 @@ public class DriftNetFishingPlugin extends Plugin {
     // Drift net anchor ids
     private static final Set<Integer> DRIFT_FISHING_ANCHOR_IDS = ImmutableSet.of(ObjectID.DRIFT_NET_ANCHORS,
             ObjectID.DRIFT_NET_ANCHORS_30953, ObjectID.DRIFT_NET_ANCHORS_30954, ObjectID.DRIFT_NET_FULL);
+
 
     @Inject
     private Client client;
@@ -79,15 +84,24 @@ public class DriftNetFishingPlugin extends Plugin {
     private final Set<NPC> fishies = new HashSet<>();
 
     @Getter(AccessLevel.PACKAGE)
-    private final Set<Actor> activeFishies = new HashSet<>();
+    private final Set<NPC> activeFishies = new HashSet<>();
 
     @Getter(AccessLevel.PACKAGE)
-    private final Map<Actor, Instant> activeTimers = new HashMap<>();
+    private final Map<NPC, Instant> activeTimers = new HashMap<>();
 
     @Getter(AccessLevel.PACKAGE)
     private final Map<GameObject, Integer> netFishCount = new HashMap<>();
 
-    private Actor lastInteractedFishy;
+    // Areas in which activated fish will run at nets - not used at the moment
+    private final Map<GameObject, WorldArea> consumeAreas = new HashMap<>();
+
+    private NPC lastInteractedFishy;
+
+    private Boolean prodThisTick = false;
+
+    //delete me
+    @Getter(AccessLevel.PACKAGE)
+    private final Map<NPC, Integer> fishNum = new HashMap<>();
 
 
     @Override
@@ -100,7 +114,9 @@ public class DriftNetFishingPlugin extends Plugin {
     protected void shutDown() throws Exception {
         overlayManager.remove(overlay);
         fishies.clear();
+        fishNum.clear();
         driftAnchors.clear();
+        consumeAreas.clear();
         netFishCount.clear();
         activeFishies.clear();
         activeTimers.clear();
@@ -111,7 +127,9 @@ public class DriftNetFishingPlugin extends Plugin {
         if (event.getGameState() == GameState.LOGIN_SCREEN ||
                 event.getGameState() == GameState.HOPPING) {
             fishies.clear();
+            fishNum.clear();
             driftAnchors.clear();
+            consumeAreas.clear();
             netFishCount.clear();
             activeFishies.clear();
             activeTimers.clear();
@@ -125,9 +143,18 @@ public class DriftNetFishingPlugin extends Plugin {
         final NPC npc = npcSpawned.getNpc();
         final String npcName = npc.getName();
 
-        if (npcName != null && npcName.equals(FISH_NAME))
+
+        if (npcName != null && npcName.equals(FISH_NAME)) {
             fishies.add(npc);
+            for (int i = 1; i <= fishies.size() + 1; i++) {
+                if (!fishNum.values().contains(i)) {
+                    fishNum.put(npc, i);
+                    break;
+                }
+            }
+        }
     }
+
 
     @Subscribe
     public void onNpcDespawned(NpcDespawned npcDespawned) {
@@ -135,8 +162,8 @@ public class DriftNetFishingPlugin extends Plugin {
         final NPC npc = npcDespawned.getNpc();
 
         for (GameObject net : driftAnchors) {
-            if (net.getWorldLocation().distanceTo(npc.getWorldLocation()) > 3) continue;
-            log.info("netted a fish, net counter: " + netFishCount.get(net));
+            if (net.getWorldLocation().distanceTo(npc.getWorldLocation()) > SUCC_DISTANCE) continue;
+            log.info("netted a fish (distance: " + net.getWorldLocation().distanceTo(npc.getWorldLocation()) + ") (id: " + fishNum.get(npc) + ") (total: " + (activeFishies.size() - 1) + "), net counter: " + netFishCount.get(net));
 
             ObjectComposition impostor = client.getObjectDefinition(net.getId()).getImpostor();
 
@@ -152,6 +179,7 @@ public class DriftNetFishingPlugin extends Plugin {
         }
 
         fishies.remove(npc);
+        fishNum.remove(npc);
         activeFishies.remove(npc);
         activeTimers.remove(npc);
     }
@@ -164,6 +192,7 @@ public class DriftNetFishingPlugin extends Plugin {
         GameObject gameObject = event.getGameObject();
         ObjectComposition comp = client.getObjectDefinition(gameObject.getId());
 
+        // Set fish counters (if possible)
         if (comp.getImpostorIds() != null && comp.getImpostor() != null) {
 
             if (DRIFT_FISHING_ANCHOR_IDS.contains(comp.getImpostor().getId()))
@@ -182,6 +211,17 @@ public class DriftNetFishingPlugin extends Plugin {
                     break;
             }
         }
+
+        // Set fish consume areas (areas where fish will run at a net)
+        switch (gameObject.getOrientation().getNearestDirection().name()) {
+            case "WEST":
+                consumeAreas.put(gameObject, new WorldArea(gameObject.getWorldLocation().dx(-6).dy(-2), 5, 5));
+                break;
+            case "NORTH":
+                consumeAreas.put(gameObject, new WorldArea(gameObject.getWorldLocation().dx(-2).dy(1), 4, 5));
+                break;
+        }
+
     }
 
     @Subscribe
@@ -191,6 +231,7 @@ public class DriftNetFishingPlugin extends Plugin {
         GameObject gameObject = event.getGameObject();
         driftAnchors.remove(gameObject);
         netFishCount.remove(gameObject);
+        consumeAreas.remove(gameObject);
     }
 
 
@@ -198,21 +239,39 @@ public class DriftNetFishingPlugin extends Plugin {
     public void onGameTick(GameTick event) {
         if (incorrectArea()) return;
 
+        prodThisTick = false;
+
         // Remove "activated" fish after 60 seconds (arbitrary)
         // todo: determine how long a fish is actually activated for
-        List<Actor> toRemove = new ArrayList<>();
+        List<NPC> toRemove = new ArrayList<>();
         activeTimers.forEach((k, v) -> {
             if (Instant.now().getEpochSecond() - v.getEpochSecond() >= 60) {
                 toRemove.add(k);
+                log.info("fish deactivated by timeout (id: " + fishNum.get(k) + ") (total: " + (activeFishies.size() - 1) + ")");
             }
         });
 
-        for (Actor item : toRemove) {
-            activeTimers.remove(item);
-            activeFishies.remove(item);
-            log.info("fish deactivated by timeout (total: " + activeFishies.size() + ")");
+
+        //// Remove "activated" fish that move into the consume area of an inactive net
+        for (GameObject net : driftAnchors) {
+            ObjectComposition comp = client.getObjectDefinition(net.getId());
+
+            if (comp.getImpostor().getId() == ObjectID.DRIFT_NET_ANCHORS
+                    || comp.getImpostor().getId() == ObjectID.DRIFT_NET_FULL) {
+
+                for (NPC fish : activeFishies) {
+                    if (net.getWorldLocation().distanceTo(fish.getWorldLocation()) > SUCC_DISTANCE) continue;
+                    toRemove.add(fish);
+                    log.info("fish deactivated by inactive net (distance: " + net.getWorldLocation().distanceTo(fish.getWorldLocation()) + ") (id: " + fishNum.get(fish) + ") (total: " + (activeFishies.size() - 1) + ")");
+                }
+            }
         }
 
+        // Remove them for reals (doing it this way because of concurrent modification errors)
+        for (NPC fish : toRemove) {
+            activeTimers.remove(fish);
+            activeFishies.remove(fish);
+        }
 
     }
 
@@ -221,7 +280,7 @@ public class DriftNetFishingPlugin extends Plugin {
         if (incorrectArea() || event.getGroupId() != 607) return; // 607 is the fish bank interface
 
         for (GameObject net : driftAnchors) {
-            if (net.getWorldLocation().distanceTo(client.getLocalPlayer().getWorldLocation()) > 3) continue;
+            if (net.getWorldLocation().distanceTo(client.getLocalPlayer().getWorldLocation()) > SUCC_DISTANCE) continue;
 
             log.info("emptied net");
             netFishCount.put(net, 0);
@@ -230,22 +289,44 @@ public class DriftNetFishingPlugin extends Plugin {
 
     @Subscribe
     private void onInteractingChanged(InteractingChanged event) {
-        if (incorrectArea() || event.getSource() != client.getLocalPlayer()) return;
-        if (event.getTarget() != null && event.getTarget().getName().equals(FISH_NAME)) {
-            lastInteractedFishy = event.getTarget();
-        } else if (event.getTarget() == null && lastInteractedFishy != null
-                && client.getLocalPlayer().getWorldLocation().distanceTo(lastInteractedFishy.getWorldLocation()) == 1) {
+        if (incorrectArea()
+                || event.getSource() != client.getLocalPlayer()
+                || event.getTarget() == null) return;
+
+
+        if (event.getTarget().getName().equals(FISH_NAME)) {
+            log.info("interacting with " + event.getTarget().getName());
+            lastInteractedFishy = (NPC) event.getTarget();
+
+            if (prodThisTick) {
+                activeFishies.add(lastInteractedFishy);
+                activeTimers.put(lastInteractedFishy, Instant.now());
+                log.info("activated fish (id: " + fishNum.get(lastInteractedFishy) + ") (total: " + activeFishies.size() + ")");
+                lastInteractedFishy = null;
+            }
+        }
+    }
+
+    @Subscribe
+    private void onChatMessage(ChatMessage event) {
+        if (event.getMessage() == null || !event.getMessage().contains("prod at the shoal")) return;
+
+        prodThisTick = true;
+
+        if(lastInteractedFishy != null) {
             activeFishies.add(lastInteractedFishy);
             activeTimers.put(lastInteractedFishy, Instant.now());
-            log.info("activated fish (total: " + activeFishies.size() + ")");
+            log.info("activated fish (id: " + fishNum.get(lastInteractedFishy) + ") (total: " + activeFishies.size() + ")");
             lastInteractedFishy = null;
         }
     }
 
     private void rebuildAllNpcs() {
         fishies.clear();
+        fishNum.clear();
         driftAnchors.clear();
         netFishCount.clear();
+        consumeAreas.clear();
 
         if (client.getGameState() != GameState.LOGGED_IN &&
                 client.getGameState() != GameState.LOADING) {
@@ -258,6 +339,7 @@ public class DriftNetFishingPlugin extends Plugin {
             final String npcName = npc.getName();
             if (npcName != null && npcName.equals(FISH_NAME)) {
                 fishies.add(npc);
+                fishNum.put(npc, fishNum.size() + 1);
             }
         }
     }
@@ -268,7 +350,9 @@ public class DriftNetFishingPlugin extends Plugin {
         for (int region : client.getMapRegions()) {
             if (!DRIFT_FISHING_REGIONS.contains(region)) {
                 fishies.clear();
+                fishNum.clear();
                 driftAnchors.clear();
+                consumeAreas.clear();
                 netFishCount.clear();
                 activeFishies.clear();
                 activeTimers.clear();
@@ -278,3 +362,8 @@ public class DriftNetFishingPlugin extends Plugin {
         return false;
     }
 }
+
+//todo: moving away from area (before exiting tunnel) triggers npcdespawn on fish out of view (handle this)
+//todo: sometimes an "active" fish wanders around in an active consume area but doesnt get succed - find out why
+//todo: figure out real active timer (currently arbitrary 60 sec)
+//todo: make 60 sec timer into a tick timer (100 ticks?) dont remove active status from fish until 1/2 ticks have passed

@@ -35,6 +35,7 @@ import net.runelite.client.ui.overlay.OverlayUtil;
 
 import javax.inject.Inject;
 import java.awt.*;
+import java.time.Instant;
 import java.util.Set;
 
 public class DriftNetFishingOverlay extends Overlay {
@@ -57,24 +58,36 @@ public class DriftNetFishingOverlay extends Overlay {
             renderNetOverlay(graphics, obj);
         }
 
-        Set<Actor> activeFishies = plugin.getActiveFishies();
+        Set<NPC> activeFishies = plugin.getActiveFishies();
 
-        for (NPC fishy : plugin.getFishies()) {
+        for (NPC fish : plugin.getFishies()) {
             Color hCol = Color.RED;
-            if (activeFishies.contains(fishy)) {
+            if (activeFishies.contains(fish)) {
                 hCol = Color.GREEN;
             }
-            renderNpcOverlay(graphics, fishy, hCol);
+            renderFishOverlay(graphics, fish, hCol);
         }
 
         return null;
     }
 
 
-    private void renderNpcOverlay(Graphics2D graphics, NPC actor, Color color) {
+    private void renderFishOverlay(Graphics2D graphics, NPC fish, Color color) {
 
-        Polygon objectClickbox = actor.getConvexHull();
+        Polygon objectClickbox = fish.getConvexHull();
         renderPoly(graphics, color, objectClickbox);
+
+        // Text
+        String text = plugin.getFishNum().get(fish) + "";
+        Point textLocation = fish.getCanvasTextLocation(graphics, text, 40);
+        OverlayUtil.renderTextLocation(graphics, textLocation, text, color);
+
+        if (plugin.getActiveTimers().get(fish) != null) {
+            text = (Instant.now().getEpochSecond() - plugin.getActiveTimers().get(fish).getEpochSecond()) + "";
+            textLocation = fish.getCanvasTextLocation(graphics, text, 200);
+            OverlayUtil.renderTextLocation(graphics, textLocation, text, color);
+        }
+
 
     }
 
