@@ -29,22 +29,23 @@ package net.runelite.client.plugins.zulrah;
 import javax.inject.Inject;
 
 import com.google.common.collect.ImmutableSet;
+import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.Client;
-import net.runelite.api.NPC;
-import net.runelite.api.NPCComposition;
-import net.runelite.api.NpcID;
+import net.runelite.api.*;
+import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameTick;
-import net.runelite.api.events.NpcActionChanged;
 import net.runelite.api.events.NpcDespawned;
 import net.runelite.api.events.NpcSpawned;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.ui.overlay.OverlayManager;
 
 import java.util.Arrays;
 import java.util.Set;
+import java.util.ArrayList;
 
 @PluginDescriptor(
         name = "Zulrah",
@@ -57,37 +58,130 @@ public class ZulrahPlugin extends Plugin {
     private static final int ZULRAH_GREEN = NpcID.ZULRAH;
     private static final int ZULRAH_RED = NpcID.ZULRAH_2043;
     private static final int ZULRAH_BLUE = NpcID.ZULRAH_2044;
-
     private static final Set<Integer> ZULRAH_IDS = ImmutableSet.of(ZULRAH_GREEN, ZULRAH_RED, ZULRAH_BLUE);
 
-    // 2042 green range
-    // 2043 red melee
-    // 2044 blue mage
+    private static final LocalPoint LOC_TOP = new LocalPoint(6720, 6208);
+    private static final LocalPoint LOC_RIGHT = new LocalPoint(5440, 7360);
+    private static final LocalPoint LOC_CENTRE = new LocalPoint(6720, 7616);
+    private static final LocalPoint LOC_LEFT = new LocalPoint(8000, 7360);
+
+    private static final LocalPoint PLAYER_BOTTOM_LEFT = new LocalPoint(7232, 8000);
+    private static final LocalPoint PLAYER_TOP_LEFT = new LocalPoint(7232, 7232);
+    private static final LocalPoint PLAYER_TOP_MIDDLE = new LocalPoint(6720, 6976);
+    private static final LocalPoint PLAYER_TOP_RIGHT = new LocalPoint(6208, 7232);
+    private static final LocalPoint PLAYER_BOTTOM_RIGHT = new LocalPoint(6208, 8000);
+
+    // Player positions: https://i.imgur.com/h2gg7j5.png
+    // a 7488, 7872
+    // b 7232, 8000 BOTTOM_LEFT
+    // c 7488, 7104
+    // d 7232, 7232 TOP_LEFT
+    // e 6335, 6848
+    // f 5952, 7104
+    // g 6208, 7232 TOP_RIGHT
+    // h 5952, 7616
+    // i 6208, 8000 BOTTOM_RIGHT
+    // 6720, 6976 TOP_MIDDLE not in pic
+
+    private static final int[][] ROTATION_FORMS = { // A, B, C1, C2, D
+            {ZULRAH_GREEN, ZULRAH_RED, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_RED, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_RED},
+            {ZULRAH_GREEN, ZULRAH_RED, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_RED, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_RED},
+            {ZULRAH_GREEN, ZULRAH_GREEN, ZULRAH_RED, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_BLUE},
+            {ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_RED, ZULRAH_GREEN, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_BLUE}
+    };
+
+
+    private static final LocalPoint[][] ROTATION_LOCS = { // A, B, C1, C2, D
+            {LOC_CENTRE, LOC_CENTRE, LOC_CENTRE, LOC_TOP, LOC_CENTRE, LOC_RIGHT, LOC_TOP, LOC_TOP, LOC_RIGHT, LOC_CENTRE},
+            {LOC_CENTRE, LOC_CENTRE, LOC_CENTRE, LOC_RIGHT, LOC_TOP, LOC_CENTRE, LOC_LEFT, LOC_TOP, LOC_RIGHT, LOC_CENTRE},
+            {LOC_CENTRE, LOC_LEFT, LOC_CENTRE, LOC_RIGHT, LOC_TOP, LOC_LEFT, LOC_CENTRE, LOC_RIGHT, LOC_CENTRE, LOC_LEFT, LOC_CENTRE},
+            {LOC_CENTRE, LOC_LEFT, LOC_TOP, LOC_RIGHT, LOC_CENTRE, LOC_LEFT, LOC_TOP, LOC_RIGHT, LOC_CENTRE, LOC_CENTRE, LOC_LEFT, LOC_CENTRE}
+    };
+
+    private static final LocalPoint[][] PLAYER_LOCS = { // A, B, C1, C2, D
+            {PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT, PLAYER_TOP_RIGHT, PLAYER_TOP_RIGHT, PLAYER_TOP_RIGHT, PLAYER_TOP_RIGHT, PLAYER_TOP_LEFT, PLAYER_TOP_RIGHT, PLAYER_BOTTOM_RIGHT, PLAYER_BOTTOM_RIGHT},
+            {PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT, PLAYER_TOP_RIGHT, PLAYER_TOP_RIGHT, PLAYER_BOTTOM_LEFT, PLAYER_TOP_LEFT, PLAYER_TOP_LEFT, PLAYER_TOP_RIGHT, PLAYER_BOTTOM_RIGHT, PLAYER_BOTTOM_RIGHT},
+            {PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_RIGHT, PLAYER_TOP_RIGHT, PLAYER_TOP_MIDDLE, PLAYER_TOP_LEFT, PLAYER_TOP_RIGHT, PLAYER_TOP_RIGHT, PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT},
+            {PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT, PLAYER_TOP_RIGHT, PLAYER_TOP_RIGHT, PLAYER_TOP_LEFT, PLAYER_TOP_LEFT, PLAYER_TOP_RIGHT, PLAYER_TOP_RIGHT, PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT}
+    };
+
+    private static final int[] ROTATION_JAD = {8, 8, 9, 10}; // > 8 = mage first
+
 
     private NPC zulrah;
     private int prevID;
-    private WorldPoint prevLoc;
+    private LocalPoint prevLoc;
 
-    private int counter = 0;
+    @Getter(AccessLevel.PACKAGE)
+    private LocalPoint moveTo = PLAYER_BOTTOM_LEFT;
+
+    @Getter(AccessLevel.PACKAGE)
+    private int form;
+
+    private ArrayList<Integer> possibilities = new ArrayList<>(Arrays.asList(0, 1, 2, 3));
+    private int phase = 0;
+
+    @Inject
+    private Client client;
+
+    @Inject
+    private OverlayManager overlayManager;
+
+    @Inject
+    private ZulrahOverlay overlay;
+
+    @Override
+    protected void startUp() throws Exception {
+        overlayManager.add(overlay);
+    }
+
+    @Override
+    protected void shutDown() throws Exception {
+        overlayManager.remove(overlay);
+    }
+
+    private void reset() {
+        possibilities = new ArrayList<>(Arrays.asList(0, 1, 2, 3));
+        phase = 0;
+    }
+
+    private void filterRotations(int id, LocalPoint loc) {
+        for (int rotation : new ArrayList<Integer>(possibilities)) {
+            if (ROTATION_FORMS[rotation][phase] != id || ROTATION_LOCS[rotation][phase].distanceTo(loc) > 3) {
+                possibilities.remove(possibilities.indexOf(rotation));
+            }
+        }
+    }
+
+    private void transition(int id, LocalPoint loc) {
+        phase++;
+        if (phase >= ROTATION_FORMS[possibilities.get(0)].length) reset();
 
 
-    private void transition(int id, WorldPoint loc) {
-        counter++;
-        log.info("Phase num: " + counter);
+
+        log.info("Phase num: " + phase);
+        if (possibilities.size() > 1)
+            filterRotations(id, loc);
+
+        moveTo = PLAYER_LOCS[possibilities.get(0)][phase];
+        log.info("Possibilities: " + Arrays.toString(possibilities.toArray()));
     }
 
     @Subscribe
     public void onGameTick(GameTick event) {
         if (zulrah == null) return;
-        log.info("Zulrah at: " + zulrah.getWorldLocation().getX() + "," + zulrah.getWorldLocation().getY() + "," + zulrah.getWorldLocation().getPlane());
+//        Player player = client.getLocalPlayer();
+//        log.info("------------");
+//        log.info("Zulrah at: " + zulrah.getLocalLocation().getX() + "," + zulrah.getLocalLocation().getY());
+//        log.info("Player at: " + player.getLocalLocation().getX() + "," + player.getLocalLocation().getY());
 
 
         // If zulrah changes colour and/or moves location: transition to next phase
-        if (zulrah.getId() != prevID || zulrah.getWorldLocation().distanceTo(prevLoc) > 3)
-            transition(zulrah.getId(), zulrah.getWorldLocation());
+        if (zulrah.getId() != prevID || zulrah.getLocalLocation().distanceTo(prevLoc) > 3)
+            transition(zulrah.getId(), zulrah.getLocalLocation());
 
         prevID = zulrah.getId();
-        prevLoc = zulrah.getWorldLocation();
+        prevLoc = zulrah.getLocalLocation();
     }
 
 
@@ -97,7 +191,7 @@ public class ZulrahPlugin extends Plugin {
 
         zulrah = event.getNpc();
         prevID = zulrah.getId();
-        prevLoc = zulrah.getWorldLocation();
+        prevLoc = zulrah.getLocalLocation();
     }
 
     @Subscribe
@@ -105,6 +199,8 @@ public class ZulrahPlugin extends Plugin {
         if (!ZULRAH_IDS.contains(event.getNpc().getId())) return;
 
         zulrah = null;
+        reset();
+
     }
 
 }

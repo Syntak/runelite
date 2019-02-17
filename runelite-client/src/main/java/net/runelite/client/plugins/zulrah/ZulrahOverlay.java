@@ -28,6 +28,8 @@ package net.runelite.client.plugins.zulrah;
 
 import net.runelite.api.*;
 import net.runelite.api.Point;
+import net.runelite.api.coords.LocalPoint;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
@@ -67,8 +69,20 @@ public class ZulrahOverlay extends Overlay {
             }
             renderFishOverlay(graphics, fish, hCol);
         }*/
+        LocalPoint tile = plugin.getMoveTo();
+        if (tile != null)
+            drawTile(graphics, plugin.getMoveTo());
 
         return null;
+    }
+
+    private void drawTile(Graphics2D graphics, LocalPoint point) {
+
+
+        Polygon poly = Perspective.getCanvasTilePoly(client, point);
+        if (poly == null) return;
+
+        OverlayUtil.renderPolygon(graphics, poly, new Color(122, 244, 66));
     }
 
 
