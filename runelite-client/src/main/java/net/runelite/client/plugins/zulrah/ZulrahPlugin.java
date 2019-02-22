@@ -85,38 +85,41 @@ public class ZulrahPlugin extends Plugin {
     // D2: middle mage phase between 4th phase (mage) and 5th (melee)
 
 
-    // phase 4 possibility 1 had green on left
+    // phase 5 poss 0 green middle stand bottom left
 
-    private static final int[][] ROTATION_FORMS = { // A, B1, B2, C, D1, D2
+    private static final int[][] ROTATION_FORMS = { // A1, A2, B1, B2, C, D1, D2
             {ZULRAH_GREEN, ZULRAH_RED, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_RED, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_RED},
+//            {ZULRAH_GREEN, ZULRAH_RED, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_RED, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_RED},
             {ZULRAH_GREEN, ZULRAH_RED, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_RED, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_RED},
-            {ZULRAH_GREEN, ZULRAH_RED, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_RED, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_RED},
+//            {ZULRAH_GREEN, ZULRAH_RED, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_RED, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_RED},
             {ZULRAH_GREEN, ZULRAH_GREEN, ZULRAH_RED, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_BLUE},
             {ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_RED, ZULRAH_GREEN, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_BLUE},
-            {ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_BLUE, ZULRAH_RED, ZULRAH_GREEN, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_BLUE}
+//            {ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_BLUE, ZULRAH_RED, ZULRAH_GREEN, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_BLUE, ZULRAH_GREEN, ZULRAH_BLUE}
     };
 
 
-    private static final LocalPoint[][] ROTATION_LOCS = { // A, B1, B2, C, D1, D2
+    private static final LocalPoint[][] ROTATION_LOCS = { // A1, A2, B1, B2, C, D1, D2
             {LOC_CENTRE, LOC_CENTRE, LOC_CENTRE, LOC_TOP, LOC_CENTRE, LOC_RIGHT, LOC_TOP, LOC_TOP, LOC_RIGHT, LOC_CENTRE},
+//            {LOC_CENTRE, LOC_CENTRE, LOC_CENTRE, LOC_TOP, LOC_CENTRE, LOC_CENTRE, LOC_RIGHT, LOC_TOP, LOC_TOP, LOC_RIGHT, LOC_CENTRE},
             {LOC_CENTRE, LOC_CENTRE, LOC_CENTRE, LOC_RIGHT, LOC_TOP, LOC_CENTRE, LOC_LEFT, LOC_TOP, LOC_RIGHT, LOC_CENTRE},
-            {LOC_CENTRE, LOC_CENTRE, LOC_CENTRE, LOC_RIGHT, LOC_LEFT, LOC_TOP, LOC_CENTRE, LOC_LEFT, LOC_TOP, LOC_RIGHT, LOC_CENTRE},
+//            {LOC_CENTRE, LOC_CENTRE, LOC_CENTRE, LOC_RIGHT, LOC_LEFT, LOC_TOP, LOC_CENTRE, LOC_LEFT, LOC_TOP, LOC_RIGHT, LOC_CENTRE},
             {LOC_CENTRE, LOC_LEFT, LOC_CENTRE, LOC_RIGHT, LOC_TOP, LOC_LEFT, LOC_CENTRE, LOC_RIGHT, LOC_CENTRE, LOC_LEFT, LOC_CENTRE},
             {LOC_CENTRE, LOC_LEFT, LOC_TOP, LOC_RIGHT, LOC_CENTRE, LOC_LEFT, LOC_TOP, LOC_RIGHT, LOC_CENTRE, LOC_CENTRE, LOC_LEFT, LOC_CENTRE},
-            {LOC_CENTRE, LOC_LEFT, LOC_TOP, LOC_RIGHT, LOC_CENTRE, LOC_CENTRE, LOC_LEFT, LOC_TOP, LOC_RIGHT, LOC_CENTRE, LOC_CENTRE, LOC_LEFT, LOC_CENTRE}
+//            {LOC_CENTRE, LOC_LEFT, LOC_TOP, LOC_RIGHT, LOC_CENTRE, LOC_CENTRE, LOC_LEFT, LOC_TOP, LOC_RIGHT, LOC_CENTRE, LOC_CENTRE, LOC_LEFT, LOC_CENTRE}
     };
 
 
-    private static final LocalPoint[][] PLAYER_LOCS = { // A, B1, B2, C, D1, D2
+    private static final LocalPoint[][] PLAYER_LOCS = { // A1, A2, B1, B2, C, D1, D2
             {PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT, PLAYER_TOP_RIGHT, PLAYER_TOP_RIGHT, PLAYER_TOP_RIGHT, PLAYER_TOP_RIGHT, PLAYER_TOP_LEFT, PLAYER_TOP_RIGHT, PLAYER_BOTTOM_RIGHT, PLAYER_BOTTOM_RIGHT},
+//            {PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT, PLAYER_TOP_RIGHT, PLAYER_TOP_RIGHT, PLAYER_TOP_RIGHT, PLAYER_BOTTOM_LEFT, PLAYER_TOP_RIGHT, PLAYER_TOP_LEFT, PLAYER_TOP_RIGHT, PLAYER_BOTTOM_RIGHT, PLAYER_BOTTOM_RIGHT},
             {PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT, PLAYER_TOP_RIGHT, PLAYER_TOP_RIGHT, PLAYER_BOTTOM_LEFT, PLAYER_TOP_LEFT, PLAYER_TOP_LEFT, PLAYER_TOP_RIGHT, PLAYER_BOTTOM_RIGHT, PLAYER_BOTTOM_LEFT},
-            {PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT, PLAYER_TOP_RIGHT, PLAYER_TOP_RIGHT, PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT, PLAYER_TOP_LEFT, PLAYER_TOP_LEFT, PLAYER_TOP_RIGHT, PLAYER_BOTTOM_RIGHT, PLAYER_BOTTOM_LEFT},
+//            {PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT, PLAYER_TOP_RIGHT, PLAYER_TOP_RIGHT, PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT, PLAYER_TOP_LEFT, PLAYER_TOP_LEFT, PLAYER_TOP_RIGHT, PLAYER_BOTTOM_RIGHT, PLAYER_BOTTOM_LEFT},
             {PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_RIGHT, PLAYER_TOP_RIGHT, PLAYER_TOP_MIDDLE, PLAYER_TOP_LEFT, PLAYER_TOP_RIGHT, PLAYER_TOP_RIGHT, PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT},
             {PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT, PLAYER_TOP_RIGHT, PLAYER_TOP_RIGHT, PLAYER_TOP_LEFT, PLAYER_TOP_LEFT, PLAYER_TOP_RIGHT, PLAYER_TOP_RIGHT, PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT},
-            {PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT, PLAYER_TOP_RIGHT, PLAYER_TOP_RIGHT, PLAYER_TOP_LEFT, PLAYER_TOP_LEFT, PLAYER_TOP_LEFT, PLAYER_TOP_RIGHT, PLAYER_TOP_RIGHT, PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT}
+//            {PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT, PLAYER_TOP_RIGHT, PLAYER_TOP_RIGHT, PLAYER_TOP_LEFT, PLAYER_TOP_LEFT, PLAYER_TOP_LEFT, PLAYER_TOP_RIGHT, PLAYER_TOP_RIGHT, PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT, PLAYER_BOTTOM_LEFT}
     };
 
-    private static final int[] ROTATION_JAD = {8, 8, 9, 9, 10, 11}; // index > 2 mage first
+    private static final int[] ROTATION_JAD = {8, /*9,*/ 8, /*9,*/ 9, 10/*, 11*/}; // index > 3 mage first (base index > 1)
 
 
     private NPC zulrah;
@@ -144,7 +147,7 @@ public class ZulrahPlugin extends Plugin {
     @Getter(AccessLevel.PACKAGE)
     private String jadType = "Range";
 
-    private ArrayList<Integer> possibilities = new ArrayList<>(Arrays.asList(0, 1, 2, 3, 4, 5));
+    private ArrayList<Integer> possibilities = new ArrayList<>(Arrays.asList(0, 1, 2, 3/*, 4, 5, 6*/));
     private int phase = 0;
 
     @Inject
@@ -172,16 +175,22 @@ public class ZulrahPlugin extends Plugin {
     }
 
     private void reset() {
-        possibilities = new ArrayList<>(Arrays.asList(0, 1, 2, 3, 4, 5));
+        possibilities = new ArrayList<>(Arrays.asList(0, 1, 2, 3/*, 4, 5, 6*/));
         phase = 0;
     }
 
-    private void filterRotations(int id, LocalPoint loc) {
+    private boolean filterRotations(int id, LocalPoint loc) {
         for (int rotation : new ArrayList<Integer>(possibilities)) {
             if (ROTATION_FORMS[rotation][phase] != id || ROTATION_LOCS[rotation][phase].distanceTo(loc) > 3) {
+                if (possibilities.size() == 1) {
+                    log.info("Unknown phase, ignoring");
+                    phase--;
+                    return true;
+                }
                 possibilities.remove(possibilities.indexOf(rotation));
             }
         }
+        return false;
     }
 
     private void predictMove() {
@@ -228,9 +237,11 @@ public class ZulrahPlugin extends Plugin {
         if (phase >= ROTATION_FORMS[possibilities.get(0)].length) reset();
 
 
+
+        boolean wtfPhase = filterRotations(id, loc);
         log.info("Phase num: " + phase);
-        if (possibilities.size() > 1)
-            filterRotations(id, loc);
+        log.info("Possibilities: " + Arrays.toString(possibilities.toArray()));
+        if (wtfPhase) return;
 
         nextMoveTo = null;
         predictMove();
@@ -238,11 +249,10 @@ public class ZulrahPlugin extends Plugin {
         predictForm();
         predictJad();
 
-        jadType = possibilities.get(0) > 2 ? "Mage" : "Range";
+        jadType = possibilities.get(0) > 1/*3*/ ? "Mage" : "Range";
         jad = (ROTATION_JAD[possibilities.get(0)] == phase);
         form = ROTATION_FORMS[possibilities.get(0)][phase];
         moveTo = PLAYER_LOCS[possibilities.get(0)][phase];
-        log.info("Possibilities: " + Arrays.toString(possibilities.toArray()));
     }
 
     @Subscribe
