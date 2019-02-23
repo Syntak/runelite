@@ -177,6 +177,16 @@ public class ZulrahPlugin extends Plugin {
     private void reset() {
         possibilities = new ArrayList<>(Arrays.asList(0, 1, 2, 3/*, 4, 5, 6*/));
         phase = 0;
+
+        jad = false;
+        nextJad = false;
+        jadType = "Range";
+
+        form = ZULRAH_GREEN;
+        nextForm = -1;
+
+        moveTo = PLAYER_BOTTOM_LEFT;
+        nextMoveTo = null;
     }
 
     private boolean filterRotations(int id, LocalPoint loc) {
@@ -237,7 +247,6 @@ public class ZulrahPlugin extends Plugin {
         if (phase >= ROTATION_FORMS[possibilities.get(0)].length) reset();
 
 
-
         boolean wtfPhase = filterRotations(id, loc);
         log.info("Phase num: " + phase);
         log.info("Possibilities: " + Arrays.toString(possibilities.toArray()));
@@ -284,9 +293,11 @@ public class ZulrahPlugin extends Plugin {
 
     @Subscribe
     public void onNpcDespawned(NpcDespawned event) {
+//        log.info("Despawn: " + event.getNpc().getId() + event.getNpc().getName());
         if (!ZULRAH_IDS.contains(event.getNpc().getId())) return;
 
         zulrah = null;
+
         reset();
 
     }
